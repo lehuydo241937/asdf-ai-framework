@@ -1,116 +1,107 @@
-// Command Data
+// Command Registry
 const commands = [
-    { cmd: '/gen', desc: 'Generate or modify code', icon: 'zap' },
-    { cmd: '/fix', desc: 'Fix errors from logs', icon: 'wrench' },
-    { cmd: '/build', desc: 'Run build scripts', icon: 'package' },
-    { cmd: '/tree', desc: 'View folder structure', icon: 'folder-tree' },
-    { cmd: '/preview', desc: 'Get demo link', icon: 'external-link' },
-    { cmd: '/clear', desc: 'Clear AI context', icon: 'trash-2' },
-    { cmd: '/deploy', desc: 'Merge to main', icon: 'rocket' }
+    { cmd: '/gen', desc: 'Generate/modify code', icon: 'zap' },
+    { cmd: '/fix', desc: 'Fix errors from log', icon: 'wrench' },
+    { cmd: '/build', desc: 'Check build integrity', icon: 'package' },
+    { cmd: '/tree', desc: 'View source tree', icon: 'folder-tree' },
+    { cmd: '/preview', desc: 'Get preview URL', icon: 'external-link' }
 ];
 
-// UI Elements
-const cmdInput = document.getElementById('cmdInput');
+// Elements
+const input = document.getElementById('input');
 const suggestions = document.getElementById('suggestions');
-const suggestionsList = document.getElementById('suggestionsList');
-const chatArea = document.getElementById('chatArea');
-const sendBtn = document.getElementById('sendBtn');
-const statusDot = document.getElementById('statusDot');
-const statusText = document.getElementById('statusText');
-const settingsBtn = document.getElementById('settingsBtn');
-const settingsModal = document.getElementById('settingsModal');
-const modalOverlay = document.getElementById('modalOverlay');
-const saveSettings = document.getElementById('saveSettings');
-const ghTokenInput = document.getElementById('ghToken');
-const ghRepoInput = document.getElementById('ghRepo');
+const list = document.getElementById('suggestions-list');
+const log = document.getElementById('chat-log');
+const send = document.getElementById('send');
+const settings = document.getElementById('settings-toggle');
+const modal = document.getElementById('settings-modal');
+const close = document.getElementById('close-modal');
+const save = document.getElementById('save-config');
+const tokenIn = document.getElementById('gh-token');
+const repoIn = document.getElementById('gh-repo');
 
-// State
-let selectedIdx = -1;
-let filteredCommands = [];
-let isProcessing = false;
+let currentIdx = -1;
+let filtered = [];
 
-// Load Settings
-const loadSettings = () => {
-    ghTokenInput.value = localStorage.getItem('asdf_gh_token') || '';
-    ghRepoInput.value = localStorage.getItem('asdf_gh_repo') || '';
+// Load config
+const loadConfig = () => {
+    tokenIn.value = localStorage.getItem('asdf_token') || '';
+    repoIn.value = localStorage.getItem('asdf_repo') || '';
 };
 
 const saveConfig = () => {
-    localStorage.setItem('asdf_gh_token', ghTokenInput.value);
-    localStorage.setItem('asdf_gh_repo', ghRepoInput.value);
-    settingsModal.classList.add('hidden');
-    addMessage('system', 'Settings saved successfully');
+    localStorage.setItem('asdf_token', tokenIn.value);
+    localStorage.setItem('asdf_repo', repoIn.value);
+    modal.classList.add('hidden');
+    addMsg('system', 'Configuration saved.');
 };
 
-// Utilities
-const addMessage = (type, text) => {
+// Messaging
+const addMsg = (type, text) => {
     const div = document.createElement('div');
-    div.className = `flex ${type === 'user' ? 'justify-end' : 'justify-start'} w-full`;
+    div.className = `flex ${type === 'user' ? 'justify-end' : 'justify-start'} w-full animate-in fade-in slide-in-from-bottom-2 duration-300`;
     
     const inner = document.createElement('div');
-    inner.className = `message-bubble p-4 rounded-2xl ${
+    inner.className = `max-w-[85%] p-4 text-sm rounded-3xl ${
         type === 'user' 
-        ? 'bg-indigo-600 rounded-tr-none text-white' 
-        : type === 'system' 
-        ? 'bg-slate-800 rounded-tl-none text-slate-300 border border-white/5'
-        : 'bg-emerald-600 rounded-tl-none text-white'
+        ? 'bg-zinc-100 text-zinc-950 rounded-tr-none' 
+        : 'bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-tl-none font-mono text-[11px] leading-relaxed' 
     }`;
     
-    inner.innerHTML = text.replace(/\n/g, '<br>');
+    inner.innerHTML = text.replace(/\n/g, '<br>').replace(/ {4}/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
     div.appendChild(inner);
-    chatArea.appendChild(div);
-    chatArea.scrollTop = chatArea.scrollHeight;
-    
-    // Refresh icons if any (though currently none in messages)
-    if (window.lucide) lucide.createIcons();
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
 };
 
-const showSuggestions = (filter = '') => {
-    filteredCommands = commands.filter(c => c.cmd.includes(filter));
-    if (filteredCommands.length === 0) {
-        suggestions.style.display = 'none';
+// Suggestions
+const showSug = (filter = '') => {
+    filtered = commands.filter(c => c.cmd.includes(filter));
+    if (filtered.length === 0) {
+        suggestions.classList.add('hidden');
         return;
     }
 
-    suggestionsList.innerHTML = filteredCommands.map((c, i) => `
-        <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 cursor-pointer transition-colors ${i === selectedIdx ? 'bg-white/10 border-l-4 border-indigo-500' : ''}" onclick="selectCommand('${c.cmd}')">
-            <div class="p-2 bg-indigo-500/20 rounded-lg"><i data-lucide="${c.icon}" class="w-4 h-4 text-indigo-400"></i></div>
+    list.innerHTML = filtered.map((c, i) => `
+        <div class="p-3 command-node flex items-center gap-3 cursor-pointer ${i === currentIdx ? 'suggestion-active' : ''}" onclick="selectCmd('${c.cmd}')">
+            <div class="p-2 bg-zinc-800 rounded-lg text-indigo-400">
+                <i data-lucide="${c.icon}" class="w-4 h-4"></i>
+            </div>
             <div class="flex-1">
-                <div class="text-sm font-bold text-white">${c.cmd}</div>
-                <div class="text-[10px] text-slate-400">${c.desc}</div>
+                <p class="text-sm font-bold">${c.cmd}</p>
+                <p class="text-[10px] text-zinc-500">${c.desc}</p>
             </div>
         </div>
     `).join('');
     
-    suggestions.style.display = 'block';
+    suggestions.classList.remove('hidden');
     lucide.createIcons();
 };
 
-const selectCommand = (cmd) => {
-    cmdInput.value = cmd + ' ';
-    suggestions.style.display = 'none';
-    cmdInput.focus();
+const selectCmd = (cmd) => {
+    input.value = cmd + ' ';
+    suggestions.classList.add('hidden');
+    input.focus();
 };
 
-const sendCommand = async () => {
-    const text = cmdInput.value.trim();
-    if (!text || isProcessing) return;
+// Dispatch
+const dispatch = async () => {
+    const text = input.value.trim();
+    if (!text) return;
 
-    const token = localStorage.getItem('asdf_gh_token');
-    const repo = localStorage.getItem('asdf_gh_repo');
-
+    const token = localStorage.getItem('asdf_token');
+    const repo = localStorage.getItem('asdf_repo');
     if (!token || !repo) {
-        settingsModal.classList.remove('hidden');
+        modal.classList.remove('hidden');
         return;
     }
 
-    addMessage('user', text);
-    cmdInput.value = '';
-    isProcessing = true;
-    sendBtn.disabled = true;
+    addMsg('user', text);
+    input.value = '';
+    send.disabled = true;
 
     try {
-        const response = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+        const res = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -123,102 +114,89 @@ const sendCommand = async () => {
             })
         });
 
-        if (response.ok) {
-            addMessage('system', 'Brain activated! Waiting for AI process...');
+        if (res.ok) {
+            addMsg('system', 'Signal sent. Brain is computing...');
             pollStatus();
         } else {
-            const err = await response.json();
-            addMessage('system', `Error: ${err.message || 'Failed to trigger workflow'}`);
-            isProcessing = false;
-            sendBtn.disabled = false;
+            const err = await res.json();
+            addMsg('system', `Dispatch failed: ${err.message}`);
+            send.disabled = false;
         }
     } catch (e) {
-        addMessage('system', `Network Error: ${e.message}`);
-        isProcessing = false;
-        sendBtn.disabled = false;
+        addMsg('system', `Error: ${e.message}`);
+        send.disabled = false;
     }
 };
 
 const pollStatus = async () => {
-    const repo = localStorage.getItem('asdf_gh_repo');
-    const token = localStorage.getItem('asdf_gh_token');
+    const repo = localStorage.getItem('asdf_repo');
+    const token = localStorage.getItem('asdf_token');
     
-    const interval = setInterval(async () => {
+    const check = async () => {
         try {
-            // Using raw content to get latest status.json
-            const response = await fetch(`https://api.github.com/repos/${repo}/contents/status.json`, {
+            const res = await fetch(`https://api.github.com/repos/${repo}/contents/status.json`, {
                 headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3.raw' },
                 cache: 'no-store'
             });
             
-            if (response.ok) {
-                const data = await response.json();
-                updateUIStatus(data.status);
-                
-                if (data.status === 'success' || data.status === 'error') {
-                    if (data.status === 'success') addMessage('ai', `✓ Brain Tasks Completed Successfully!`);
-                    else addMessage('system', `⚠ AI Error occurred. Check logs.`);
-                    
-                    isProcessing = false;
-                    sendBtn.disabled = false;
-                    clearInterval(interval);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'success') {
+                    addMsg('system', 'Brain task complete. Ready.');
+                    send.disabled = false;
+                    return true;
+                } else if (data.status === 'error') {
+                    addMsg('system', 'Brain encountered an error during task.');
+                    send.disabled = false;
+                    return true;
                 }
             }
-        } catch (e) {
-            console.error('Polling error', e);
-        }
+        } catch (e) {}
+        return false;
+    };
+
+    const poller = setInterval(async () => {
+        const done = await check();
+        if (done) clearInterval(poller);
     }, 5000);
 };
 
-const updateUIStatus = (status) => {
-    const colors = {
-        'running': 'bg-blue-400',
-        'success': 'bg-emerald-400',
-        'error': 'bg-rose-400',
-        'idle': 'bg-slate-500'
-    };
-    statusDot.className = `w-2 h-2 rounded-full ${colors[status] || 'bg-slate-500'}`;
-    statusText.innerText = status;
-};
-
-// Event Listeners
-cmdInput.addEventListener('input', (e) => {
-    const val = e.target.value;
-    if (val.startsWith('/')) {
-        showSuggestions(val.split(' ')[0]);
-    } else {
-        suggestions.style.display = 'none';
-    }
+// Events
+input.addEventListener('input', (e) => {
+    if (e.target.value.startsWith('/')) showSug(e.target.value.split(' ')[0]);
+    else suggestions.classList.add('hidden');
 });
 
-cmdInput.addEventListener('keydown', (e) => {
-    if (suggestions.style.display === 'block') {
+input.addEventListener('keydown', (e) => {
+    if (!suggestions.classList.contains('hidden')) {
         if (e.key === 'ArrowDown') {
             e.preventDefault();
-            selectedIdx = (selectedIdx + 1) % filteredCommands.length;
-            showSuggestions(cmdInput.value.split(' ')[0]);
+            currentIdx = (currentIdx + 1) % filtered.length;
+            showSug(input.value.split(' ')[0]);
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
-            selectedIdx = (selectedIdx - 1 + filteredCommands.length) % filteredCommands.length;
-            showSuggestions(cmdInput.value.split(' ')[0]);
-        } else if (e.key === 'Enter' && selectedIdx !== -1) {
+            currentIdx = (currentIdx - 1 + filtered.length) % filtered.length;
+            showSug(input.value.split(' ')[0]);
+        } else if (e.key === 'Enter' && currentIdx !== -1) {
             e.preventDefault();
-            selectCommand(filteredCommands[selectedIdx].cmd);
+            selectCmd(filtered[currentIdx].cmd);
+            currentIdx = -1;
+        } else if (e.key === 'Enter') {
+            dispatch();
         }
     } else if (e.key === 'Enter') {
-        sendCommand();
+        dispatch();
     }
 });
 
-sendBtn.addEventListener('click', sendCommand);
-settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
-modalOverlay.addEventListener('click', () => settingsModal.classList.add('hidden'));
-saveSettings.addEventListener('click', saveConfig);
+send.addEventListener('click', dispatch);
+settings.addEventListener('click', () => modal.classList.remove('hidden'));
+close.addEventListener('click', () => modal.classList.add('hidden'));
+save.addEventListener('click', saveConfig);
 
-// Setup
-loadSettings();
-if (!localStorage.getItem('asdf_gh_token')) {
-    setTimeout(() => settingsModal.classList.remove('hidden'), 500);
+// Init
+loadConfig();
+if (!localStorage.getItem('asdf_token')) {
+    setTimeout(() => modal.classList.remove('hidden'), 500);
 }
-addMessage('system', 'Welcome to ASDF Framework. Configure your Repo and Token to start.');
-updateUIStatus('idle');
+addMsg('system', 'ASDF Terminal Version 1.1 Ready.\nConfigure connection to begin.');

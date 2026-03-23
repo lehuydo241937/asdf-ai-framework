@@ -3,154 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASDF Remote Control</title>
+    <title>ASDF Remote</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body {
-            font-family: 'Outfit', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-            color: #f8fafc;
-            min-height: 100vh;
-            overflow: hidden;
-        }
-
-        .glass {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-
-        .glass-dark {
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .chat-container {
-            height: calc(100vh - 120px);
-            overflow-y: auto;
-            scroll-behavior: smooth;
-        }
-
-        .message-bubble {
-            max-width: 85%;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .status-badge {
-            transition: all 0.3s ease;
-        }
-
-        .suggest-popup {
-            position: absolute;
-            bottom: 100%;
-            left: 0;
-            width: 100%;
-            display: none;
-            z-index: 50;
-        }
-
-        .input-glow:focus {
-            box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
-            outline: none;
-        }
-
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #0a0a0b; color: #e4e4e7; }
+        .glass { background: rgba(24, 24, 27, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(63, 63, 70, 0.5); }
+        .command-node { transition: all 0.2s ease; }
+        .command-node:hover { background: rgba(39, 39, 42, 0.8); }
+        .suggestion-active { background: rgba(39, 39, 42, 0.8); border-left: 3px solid #6366f1; }
+        #chat-log::-webkit-scrollbar { width: 3px; }
+        #chat-log::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
     </style>
 </head>
-<body class="p-4">
+<body class="h-screen flex flex-col overflow-hidden">
+
     <!-- Header -->
-    <header class="flex items-center justify-between mb-4 glass rounded-2xl p-4">
-        <div class="flex items-center gap-3">
-            <div class="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-500/20">
-                <i data-lucide="cpu" class="w-6 h-6 text-white"></i>
-            </div>
-            <div>
-                <h1 class="font-bold text-lg leading-none">ASDF</h1>
-                <p class="text-[10px] text-indigo-300 tracking-widest uppercase mt-1">AI BRAIN ENGINE</p>
-            </div>
+    <header class="p-4 flex justify-between items-center border-b border-zinc-800 bg-zinc-950/50">
+        <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+            <h1 class="text-sm font-semibold tracking-tight uppercase text-zinc-400">ASDF Engine</h1>
         </div>
-        <div id="statusIndicator" class="flex items-center gap-2 status-badge glass-dark px-3 py-1.5 rounded-full">
-            <div class="w-2 h-2 rounded-full bg-slate-500" id="statusDot"></div>
-            <span class="text-xs font-medium text-slate-300 uppercase tracking-tighter" id="statusText">Disconnected</span>
-        </div>
+        <button id="settings-toggle" class="p-2 rounded-full hover:bg-zinc-800 transition-colors">
+            <i data-lucide="settings" class="w-4 h-4 text-zinc-500"></i>
+        </button>
     </header>
 
-    <!-- Chat/Log Area -->
-    <div id="chatArea" class="chat-container space-y-4 px-1 pb-20">
-        <!-- Messages will appear here -->
-        <div class="flex justify-center mb-4">
-            <span class="text-[10px] text-slate-500 uppercase tracking-widest bg-slate-900/50 px-3 py-1 rounded-full border border-white/5">Yesterday, 17:45</span>
+    <!-- Chat Log -->
+    <div id="chat-log" class="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
+        <div class="text-center py-8">
+            <p class="text-xs text-zinc-600 font-medium uppercase tracking-widest">System Initialized</p>
         </div>
     </div>
 
-    <!-- Input Bar Wrapper -->
-    <div class="fixed bottom-4 left-4 right-4 group">
-        <!-- Suggestions Popup -->
-        <div id="suggestions" class="suggest-popup glass rounded-2xl p-2 mb-2 overflow-hidden">
-            <div class="space-y-1" id="suggestionsList">
-                <!-- Command items -->
-            </div>
-        </div>
-
-        <div class="glass rounded-2xl p-2 flex items-center gap-2 shadow-2xl relative overflow-hidden">
-            <!-- Background gradient effect for input -->
-            <div class="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 pointer-events-none"></div>
+    <!-- Interface -->
+    <div class="fixed bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black via-black/90 to-transparent">
+        <div class="max-w-xl mx-auto relative">
             
-            <button id="settingsBtn" class="p-2 hover:bg-white/10 rounded-xl transition-colors shrink-0 text-slate-400">
-                <i data-lucide="settings" class="w-5 h-5"></i>
-            </button>
-            <input 
-                type="text" 
-                id="cmdInput" 
-                placeholder="Type code requests or / for commands..."
-                class="bg-transparent flex-1 py-3 px-2 text-sm text-white placeholder-slate-500 focus:outline-none z-10"
-                autocomplete="off"
-            >
-            <button id="sendBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white p-3 rounded-xl transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
-                <i data-lucide="send" class="w-5 h-5"></i>
-            </button>
-        </div>
-    </div>
+            <!-- Suggestions -->
+            <div id="suggestions" class="hidden absolute bottom-full mb-3 left-0 w-full glass rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 animate-in slide-in-from-bottom-2 duration-200">
+                <div id="suggestions-list" class="flex flex-col">
+                    <!-- Suggested Commands -->
+                </div>
+            </div>
 
-    <!-- Settings Modal -->
-    <div id="settingsModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modalOverlay"></div>
-        <div class="glass w-full max-w-md rounded-3xl p-6 relative animate-in fade-in zoom-in duration-300">
-            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-                <i data-lucide="settings-2" class="w-5 h-5 text-indigo-400"></i>
-                Connection Info
-            </h2>
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 ml-1">GitHub Personal Access Token</label>
-                    <input type="password" id="ghToken" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:border-indigo-500 focus:outline-none" placeholder="ghp_xxxxxxxxxxxx">
-                </div>
-                <div>
-                    <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1 ml-1">GitHub Repository (Owner/Repo)</label>
-                    <input type="text" id="ghRepo" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm focus:border-indigo-500 focus:outline-none" placeholder="t-huy/asdf-repo">
-                </div>
-                <button id="saveSettings" class="w-full bg-white text-indigo-950 font-bold p-3 rounded-xl hover:bg-indigo-50 transition-colors mt-2">
-                    Save Configuration
+            <!-- Input -->
+            <div class="glass rounded-2xl p-1.5 flex items-center shadow-xl border border-zinc-800">
+                <input 
+                    type="text" 
+                    id="input" 
+                    placeholder="Type / to see commands..." 
+                    class="bg-transparent flex-1 px-4 py-3 text-sm focus:outline-none placeholder-zinc-600 text-white"
+                    autocomplete="off"
+                >
+                <button id="send" class="p-3 bg-zinc-100 hover:bg-white text-black rounded-xl transition-all disabled:opacity-30">
+                    <i data-lucide="arrow-up" class="w-5 h-5"></i>
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" id="close-modal"></div>
+        <div class="glass max-w-sm w-full rounded-3xl p-6 relative animate-in zoom-in duration-200">
+            <h3 class="font-semibold text-lg mb-4">Configuration</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-[10px] text-zinc-500 uppercase font-bold block mb-1">GH Token</label>
+                    <input type="password" id="gh-token" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none" placeholder="ghp_xxxx">
+                </div>
+                <div>
+                    <label class="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Repository</label>
+                    <input type="text" id="gh-repo" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none" placeholder="user/repo">
+                </div>
+                <button id="save-config" class="w-full bg-indigo-600 py-3 rounded-xl font-semibold text-sm hover:bg-indigo-500 transition-colors">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
-    <script>
-        lucide.createIcons();
-    </script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>

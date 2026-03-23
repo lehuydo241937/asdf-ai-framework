@@ -3,6 +3,12 @@ name: ASDF AI Engine
 on:
   repository_dispatch:
     types: [ai_command]
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Command to run'
+        required: true
+        default: '/tree'
 
 jobs:
   ai-brain-execution:
@@ -27,31 +33,37 @@ jobs:
         run: |
           pip install google-generativeai pathspec
 
-      - name: Update status to Running
+      - name: Get Input Command
+        id: cmd
         run: |
-          echo "{\"status\": \"running\", \"last_command\": \"${{ github.event.client_payload.command }}\", \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}" > status.json
+          # Use client_payload.command if available, fallback to input.command
+          COMMAND="${{ github.event.client_payload.command || github.event.inputs.command }}"
+          echo "COMMAND=$COMMAND" >> $GITHUB_ENV
 
       - name: Run AI Agent
+        id: run-agent
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python ai_scripts/core_agent.py '{"user_input": "${{ github.event.client_payload.command }}"}'
+          python ai_scripts/core_agent.py "{\"user_input\": \"${{ env.COMMAND }}\"}"
+
+      - name: Self-Healing Build Check
+        if: always() && (env.COMMAND == '/build' || startsWith(env.COMMAND, '/gen'))
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # Simple check: if npm run build fails (if it exists)
+          if [ -f "package.json" ]; then
+            npm install && npm run build || (
+              echo "Build failed. Retrying with AI..."
+              ERROR_LOG=$(npm run build 2>&1 | tail -n 50)
+              python ai_scripts/core_agent.py "{\"user_input\": \"/fix Build failed: $ERROR_LOG\"}"
+            )
+          fi
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name "ASDF Bot"
           git config --global user.email "asdf-bot@users.noreply.github.com"
           git add .
-          git diff --quiet && git diff --staged --quiet || (git commit -m "AI Brain: ${{ github.event.client_payload.command }}" && git push)
-
-      - name: Update status to Success
-        if: success()
-        run: |
-          echo "{\"status\": \"success\", \"last_command\": \"${{ github.event.client_payload.command }}\", \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}" > status.json
-          git commit -am "Update status: Success" && git push
-
-      - name: Update status to Error
-        if: failure()
-        run: |
-          echo "{\"status\": \"error\", \"last_command\": \"${{ github.event.client_payload.command }}\", \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}" > status.json
-          git commit -am "Update status: Error" && git push
+          git diff --quiet && git diff --staged --quiet || (git commit -m "AI Brain: ${{ env.COMMAND }}" && git push)
