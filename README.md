@@ -56,5 +56,3 @@
 Feel free to fork this project and add new capabilities to the AI Brain. If you find a bug, please open an issue!
 
 ---
-
-*Built with ♥ for the future of mobile development.*
