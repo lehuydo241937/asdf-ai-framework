@@ -3,82 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASDF Remote</title>
+    <title>ASDF Control Center v2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
-        body { font-family: 'Inter', sans-serif; background: #0a0a0b; color: #e4e4e7; }
-        .glass { background: rgba(24, 24, 27, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(63, 63, 70, 0.5); }
-        .command-node { transition: all 0.2s ease; }
-        .command-node:hover { background: rgba(39, 39, 42, 0.8); }
-        .suggestion-active { background: rgba(39, 39, 42, 0.8); border-left: 3px solid #6366f1; }
-        #chat-log::-webkit-scrollbar { width: 3px; }
-        #chat-log::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;400;600&display=swap');
+        body { font-family: 'Outfit', sans-serif; background: #050505; color: #f4f4f5; }
+        .glass { background: rgba(18, 18, 18, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .palette-shadow { box-shadow: 0 30px 60px -12px rgba(0,0,0,0.5), 0 18px 36px -18px rgba(0,0,0,0.5); }
+        .input-glow:focus-within { border-color: #6366f1; box-shadow: 0 0 20px rgba(99, 102, 241, 0.1); }
+        .suggestion-active { background: rgba(99, 102, 241, 0.1); border-left: 3px solid #6366f1; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #1f1f23; border-radius: 10px; }
+        .pulse-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
     </style>
 </head>
-<body class="h-screen flex flex-col overflow-hidden">
+<body class="h-screen flex flex-col items-center justify-center p-4 overflow-hidden">
 
-    <!-- Header -->
-    <header class="p-4 flex justify-between items-center border-b border-zinc-800 bg-zinc-950/50">
-        <div class="flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
-            <h1 class="text-sm font-semibold tracking-tight uppercase text-zinc-400">ASDF Engine</h1>
-        </div>
-        <button id="settings-toggle" class="p-2 rounded-full hover:bg-zinc-800 transition-colors">
-            <i data-lucide="settings" class="w-4 h-4 text-zinc-500"></i>
-        </button>
-    </header>
-
-    <!-- Chat Log -->
-    <div id="chat-log" class="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
-        <div class="text-center py-8">
-            <p class="text-xs text-zinc-600 font-medium uppercase tracking-widest">System Initialized</p>
-        </div>
-    </div>
-
-    <!-- Interface -->
-    <div class="fixed bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black via-black/90 to-transparent">
-        <div class="max-w-xl mx-auto relative">
-            
-            <!-- Suggestions -->
-            <div id="suggestions" class="hidden absolute bottom-full mb-3 left-0 w-full glass rounded-2xl overflow-hidden shadow-2xl border border-zinc-800 animate-in slide-in-from-bottom-2 duration-200">
-                <div id="suggestions-list" class="flex flex-col">
-                    <!-- Suggested Commands -->
+    <!-- Control Center Box -->
+    <div class="w-full max-w-2xl glass rounded-[2.5rem] palette-shadow flex flex-col h-[85vh] relative overflow-hidden">
+        
+        <!-- Header: Real-time Status -->
+        <header class="p-6 border-b border-white/5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-zinc-600 pulse-dot"></div>
+                <div>
+                    <h1 class="text-sm font-bold tracking-tight uppercase text-zinc-400">Control Center <span class="text-xs font-normal text-zinc-600 ml-2">v2.0</span></h1>
+                    <p id="status-msg" class="text-[10px] text-zinc-500 mt-0.5 tracking-wider">Disconnected</p>
                 </div>
             </div>
-
-            <!-- Input -->
-            <div class="glass rounded-2xl p-1.5 flex items-center shadow-xl border border-zinc-800">
-                <input 
-                    type="text" 
-                    id="input" 
-                    placeholder="Type / to see commands..." 
-                    class="bg-transparent flex-1 px-4 py-3 text-sm focus:outline-none placeholder-zinc-600 text-white"
-                    autocomplete="off"
-                >
-                <button id="send" class="p-3 bg-zinc-100 hover:bg-white text-black rounded-xl transition-all disabled:opacity-30">
-                    <i data-lucide="arrow-up" class="w-5 h-5"></i>
+            <div class="flex items-center gap-3">
+                <div id="repo-badge" class="px-3 py-1 bg-white/5 rounded-full border border-white/5 text-[10px] text-zinc-400 font-mono hidden">none</div>
+                <button id="config-btn" class="p-2 hover:bg-white/5 rounded-xl transition-colors">
+                    <i data-lucide="command" class="w-4 h-4 text-zinc-600"></i>
                 </button>
             </div>
+        </header>
+
+        <!-- Command Palette Log -->
+        <div id="log" class="flex-1 overflow-y-auto p-6 space-y-6 pb-24 scroll-smooth">
+            <div class="flex flex-col items-center justify-center h-full text-zinc-700 opacity-30 select-none">
+                <i data-lucide="terminal" class="w-12 h-12 mb-4"></i>
+                <p class="text-sm">ASDF AI Processing Engine</p>
+            </div>
+        </div>
+
+        <!-- Inputs Section -->
+        <div class="absolute bottom-6 left-6 right-6 space-y-3">
+            
+            <!-- Target Repo Selection -->
+            <div class="flex items-center gap-2 bg-black/40 border border-white/5 rounded-2xl px-4 py-2 text-[11px] text-zinc-500">
+                <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
+                <span>Target Repository:</span>
+                <input type="text" id="target-repo" placeholder="owner/repo" class="bg-transparent border-none focus:outline-none flex-1 font-mono text-zinc-300">
+            </div>
+
+            <!-- Command Palette Bar -->
+            <div class="relative group">
+                <!-- Slash Suggestions -->
+                <div id="suggestions" class="hidden absolute bottom-full mb-4 left-0 w-full glass rounded-3xl overflow-hidden border border-indigo-500/20 shadow-2xl animate-in slide-in-from-bottom-2 duration-300">
+                    <div id="suggestions-list" class="flex flex-col py-2">
+                        <!-- Suggestions Injection -->
+                    </div>
+                </div>
+
+                <!-- Input Input -->
+                <div class="glass input-glow border-zinc-800 p-1.5 flex items-center rounded-3xl transition-all shadow-inner">
+                    <input 
+                        type="text" 
+                        id="input" 
+                        placeholder="Type / to trigger actions..." 
+                        class="bg-transparent flex-1 px-5 py-3.5 text-sm focus:outline-none placeholder-zinc-700 text-white font-light"
+                        autocomplete="off"
+                    >
+                    <button id="send-btn" class="w-12 h-12 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center disabled:opacity-20 shrink-0">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6">
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" id="close-modal"></div>
-        <div class="glass max-w-sm w-full rounded-3xl p-6 relative animate-in zoom-in duration-200">
-            <h3 class="font-semibold text-lg mb-4">Configuration</h3>
-            <div class="space-y-4">
+    <!-- Configuration Overlay -->
+    <div id="config-overlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-md" id="close-config"></div>
+        <div class="glass w-full max-w-sm rounded-[2rem] p-8 relative animate-in zoom-in duration-300">
+            <h3 class="text-xl font-bold mb-6 flex items-center gap-3">
+                <i data-lucide="settings" class="w-5 h-5 text-indigo-400"></i>
+                Core Settings
+            </h3>
+            <div class="space-y-5">
                 <div>
-                    <label class="text-[10px] text-zinc-500 uppercase font-bold block mb-1">GH Token</label>
-                    <input type="password" id="gh-token" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none" placeholder="ghp_xxxx">
+                    <label class="text-[9px] uppercase tracking-widest text-zinc-500 font-bold block mb-2 ml-1">Authentication (GH Token)</label>
+                    <input type="password" id="gh-token" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm focus:border-indigo-500 hover:border-zinc-700 outline-none transition-all" placeholder="ghp_xxxx">
                 </div>
                 <div>
-                    <label class="text-[10px] text-zinc-500 uppercase font-bold block mb-1">Repository</label>
-                    <input type="text" id="gh-repo" class="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm focus:border-indigo-500 outline-none" placeholder="user/repo">
+                    <label class="text-[9px] uppercase tracking-widest text-zinc-500 font-bold block mb-2 ml-1">Self Control Repository (Control Center)</label>
+                    <input type="text" id="self-repo" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm focus:border-indigo-500 hover:border-zinc-700 outline-none transition-all" placeholder="owner/asdf-repo">
                 </div>
-                <button id="save-config" class="w-full bg-indigo-600 py-3 rounded-xl font-semibold text-sm hover:bg-indigo-500 transition-colors">Save Settings</button>
+                <button id="save-config" class="w-full bg-white text-black py-4 rounded-2xl font-bold text-sm hover:bg-zinc-200 transition-colors shadow-xl">Update Framework Config</button>
             </div>
         </div>
     </div>

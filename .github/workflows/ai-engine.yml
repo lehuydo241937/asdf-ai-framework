@@ -1,4 +1,4 @@
-name: ASDF AI Engine
+name: ASDF AI Engine v2.0
 
 on:
   repository_dispatch:
@@ -6,12 +6,16 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: 'Command to run'
+        description: 'Command (e.g., /gen add login)'
         required: true
         default: '/tree'
+      target_repo:
+        description: 'Target Repository (e.g., username/repo)'
+        required: false
+        default: ''
 
 jobs:
-  ai-brain-execution:
+  asdf-brain:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -19,7 +23,7 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout Code
+      - name: Checkout Framework
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_TOKEN }}
@@ -31,39 +35,24 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install google-generativeai pathspec
+          pip install google-genai pathspec
 
-      - name: Get Input Command
-        id: cmd
-        run: |
-          # Use client_payload.command if available, fallback to input.command
-          COMMAND="${{ github.event.client_payload.command || github.event.inputs.command }}"
-          echo "COMMAND=$COMMAND" >> $GITHUB_ENV
-
-      - name: Run AI Agent
-        id: run-agent
+      - name: Execute Brain Logic
+        id: run-asdf
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }} # Needed for multi-repo clone/push
         run: |
-          python ai_scripts/core_agent.py "{\"user_input\": \"${{ env.COMMAND }}\"}"
+          # Use client_payload if repository_dispatch, otherwise use workflow_dispatch inputs
+          CMD="${{ github.event.client_payload.command || github.event.inputs.command }}"
+          TARGET="${{ github.event.client_payload.target_repo || github.event.inputs.target_repo }}"
+          
+          python ai_scripts/core_agent.py "{\"user_input\": \"$CMD\", \"target_repo\": \"$TARGET\"}"
 
-      - name: Self-Healing Build Check
-        if: always() && (env.COMMAND == '/build' || startsWith(env.COMMAND, '/gen'))
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      - name: Push Status Update
+        if: always()
         run: |
-          # Simple check: if npm run build fails (if it exists)
-          if [ -f "package.json" ]; then
-            npm install && npm run build || (
-              echo "Build failed. Retrying with AI..."
-              ERROR_LOG=$(npm run build 2>&1 | tail -n 50)
-              python ai_scripts/core_agent.py "{\"user_input\": \"/fix Build failed: $ERROR_LOG\"}"
-            )
-          fi
-
-      - name: Commit and Push Changes
-        run: |
-          git config --global user.name "ASDF Bot"
-          git config --global user.email "asdf-bot@users.noreply.github.com"
-          git add .
-          git diff --quiet && git diff --staged --quiet || (git commit -m "AI Brain: ${{ env.COMMAND }}" && git push)
+          git config --global user.name "ASDF Engine"
+          git config --global user.email "asdf-engine@system.com"
+          git add status.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update ASDF Status" && git push)
