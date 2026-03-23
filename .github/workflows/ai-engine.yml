@@ -1,0 +1,57 @@
+name: ASDF AI Engine
+
+on:
+  repository_dispatch:
+    types: [ai_command]
+
+jobs:
+  ai-brain-execution:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install google-generativeai pathspec
+
+      - name: Update status to Running
+        run: |
+          echo "{\"status\": \"running\", \"last_command\": \"${{ github.event.client_payload.command }}\", \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}" > status.json
+
+      - name: Run AI Agent
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python ai_scripts/core_agent.py '{"user_input": "${{ github.event.client_payload.command }}"}'
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "ASDF Bot"
+          git config --global user.email "asdf-bot@users.noreply.github.com"
+          git add .
+          git diff --quiet && git diff --staged --quiet || (git commit -m "AI Brain: ${{ github.event.client_payload.command }}" && git push)
+
+      - name: Update status to Success
+        if: success()
+        run: |
+          echo "{\"status\": \"success\", \"last_command\": \"${{ github.event.client_payload.command }}\", \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}" > status.json
+          git commit -am "Update status: Success" && git push
+
+      - name: Update status to Error
+        if: failure()
+        run: |
+          echo "{\"status\": \"error\", \"last_command\": \"${{ github.event.client_payload.command }}\", \"timestamp\": \"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\"}" > status.json
+          git commit -am "Update status: Error" && git push
