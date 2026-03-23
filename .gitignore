@@ -1,0 +1,7 @@
+ASDF-SYSTEM-DESIGN.md
+.git
+__pycache__
+node_modules
+.venv
+.env
+status.json
